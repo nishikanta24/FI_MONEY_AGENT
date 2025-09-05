@@ -1,0 +1,14 @@
+requests
+websocket-client
+mcp
+# Google ADK and Vertex AI dependencies
+google-adk
+google-cloud-aiplatform
+vertexai
+google-genai
+# Additional data APIs for Phase 1
+yfinance
+alpha-vantage
+pandas
+numpy
+asyncio
