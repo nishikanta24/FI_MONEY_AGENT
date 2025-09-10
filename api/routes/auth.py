@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 import os
 import sys
+import asyncio
 from pathlib import Path
 
 # Add src directory to Python path to import connection.py
@@ -21,8 +22,23 @@ async def authenticate():
         # Set mode to fastapi for non-blocking operation
         os.environ["MODE"] = "fastapi"
         
-        # Call the MCP client
-        result = await automated_mcp_client()
+        # Call the MCP client with retry logic
+        max_retries = 3
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"Attempt {attempt + 1}/{max_retries} to connect to MCP service")
+                result = await automated_mcp_client()
+                break
+            except Exception as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"Retry attempt {attempt + 1} failed, retrying in 1.5 seconds...")
+                    await asyncio.sleep(1.5)
+                else:
+                    print("All retry attempts failed")
+                    raise
         
         if not result:
             raise HTTPException(

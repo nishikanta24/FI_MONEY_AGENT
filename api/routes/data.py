@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 import os
 import sys
+import asyncio
+import datetime
 from pathlib import Path
 import json
 
@@ -24,8 +26,17 @@ async def fetch_data():
         
         print("🚀 Frontend triggered data fetch...")
         
-        # Call the MCP client (same function as auth, but after login)
-        result = await automated_mcp_client()
+        # Call the MCP client with retry logic (same function as auth, but after login)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                result = await automated_mcp_client()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                print(f"⚠️  Attempt {attempt + 1} failed, retrying in 1.5s...")
+                await asyncio.sleep(1.5)
         
         if not result:
             raise HTTPException(
@@ -52,7 +63,10 @@ async def fetch_data():
                 detail=result.get("message", "Unknown error occurred")
             )
         
-        # Success! Return all the financial data
+        # Success! Save data and return response
+        with open("fi_mcp_data.json", "w") as f:
+            json.dump(result, f, indent=2)
+            
         return JSONResponse(
             status_code=200,
             content={
@@ -61,7 +75,8 @@ async def fetch_data():
                 "data": result,
                 "summary": generate_data_summary(result),
                 "total_tools": 6,
-                "file_saved": "fi_mcp_data.json"
+                "file_saved": "fi_mcp_data.json",
+                "attempts_used": attempt + 1  # 1-based count
             }
         )
         
@@ -86,7 +101,9 @@ async def data_status():
                 "message": "Financial data file found",
                 "summary": generate_data_summary(data),
                 "file_path": data_file,
-                "last_updated": os.path.getmtime(data_file)
+                "last_updated": datetime.datetime.fromtimestamp(
+                    os.path.getmtime(data_file)
+                ).isoformat()
             }
         else:
             return {
@@ -126,11 +143,14 @@ def generate_data_summary(data):
         tool_data = data.get(tool_name, {})
         
         if tool_data and isinstance(tool_data, dict):
-            if tool_data.get("status") == "success" or "data" in tool_data or len(tool_data) > 1:
+            if tool_data.get("status") == "success" and tool_data.get("data"):
                 summary["tools_status"][tool_name] = "✅ Data available"
                 summary["successful"] += 1
+            elif tool_data.get("data"):
+                summary["tools_status"][tool_name] = "⚠️ Partial data"
+                summary["failed"] += 1
             else:
-                summary["tools_status"][tool_name] = "⚠️ Limited/No data"
+                summary["tools_status"][tool_name] = "❌ No data"
                 summary["failed"] += 1
         else:
             summary["tools_status"][tool_name] = "❌ No data"
