@@ -32,3 +32,5 @@ httpx         # For HTTP client (if needed for testing)
 # Development dependencies (optional)
 pytest        # For testing
 pytest-asyncio  # For async testing
+
+streamlit
