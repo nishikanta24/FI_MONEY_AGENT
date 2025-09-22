@@ -4,12 +4,14 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.session import ClientSession
 import os
 
+
 def load_config():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, '..', 'config', 'config.json')
     with open(config_path, 'r') as f:
         config = json.load(f)
     return config['stream_url']
+
 
 async def get_data(session):
     """Automatically fetch all financial data after authentication"""
@@ -34,17 +36,13 @@ async def get_data(session):
                 print(f"❌ Failed to decode JSON: {e}")
                 data = {}
 
+
             if data.get("status") == "login_required":
                 print("🔐 Login required. Open this URL in browser:")
                 print(data["login_url"])
                 
-                # MODE-based login handling - added for CLI/FastAPI compatibility
-                mode = os.getenv("MODE", "fastapi").lower()
-                if mode == "cli":
-                    input("Press Enter after login...")
-                    return await get_data(session)  # Retry after login
-                else:
-                    return {"status": "login_required", "login_url": data["login_url"]}
+                input("Press Enter after login...")
+                return await get_data(session)  # Retry after login
             else:
                 print("✅ fetch_net_worth data received!")
                 main_json["fetch_net_worth"] = data
@@ -106,6 +104,7 @@ async def get_data(session):
         print(f"❌ Error in get_data: {e}")
         return None
 
+
 async def automated_mcp_client():
     """Automated MCP client - fetches all data after single login"""
     MCP_URL = load_config()
@@ -123,8 +122,6 @@ async def automated_mcp_client():
                 result = await get_data(session)
                 
                 if result:
-                    if result.get("status") == "login_required":
-                        return result
                     print("\n🎊 Success! All financial data has been consolidated.")
                     return result
                 else:
@@ -134,6 +131,7 @@ async def automated_mcp_client():
     except Exception as e:
         print(f"❌ Connection failed: {e}")
         return {"status": "error", "message": str(e)}
+
 
 if __name__ == "__main__":
     print("🤖 Fi Money MCP Client - Automated Mode")
